@@ -95,7 +95,7 @@ class EGauge(object):
     @classmethod
     def time_delta(cls, dt_start, dt_end):
         ''' given 2 datetimes, return the duration in hours '''
-        # switch to daylight time, subtract 1 from n (2 pm is missing)
+        # switch to daylight time, subtract 1 from n (2 am is missing)
         # tz_start = eastern.utcoffset(datetime(2014,3,1,0,0,0)).\
         #            total_seconds()/3600 # = -14400/3600 = -5 hrs
         # tz_end   = eastern.utcoffset(datetime(2014,4,1,0,0,0)).\
