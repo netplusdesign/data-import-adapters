@@ -6,9 +6,10 @@ First in the series is a package to read eGauge historical data from a CSV file 
 
 Next in series...
 
-* eMonitor csv file
-* TED csv file
-* HOBO U12 and U23 Temperature/Relative Humidity Data Loggers
+* eGauge, XML live data
+* eMonitor, csv file
+* TED, csv file
+* HOBO U12 and U23 Temperature/Relative Humidity Data Loggers, csv file
 
 I use these packages to get energy and temperature data into my home performance database. See [home-performance-flask](https://github.com/netplusdesign/home-performance-flask) and [home-performance-ang-flask](https://github.com/netplusdesign/home-performance-ang-flask).
 
