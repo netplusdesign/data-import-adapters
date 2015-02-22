@@ -69,7 +69,7 @@ def read_data_from_url():
     #start = '2014-11-01 00:00:00'
     #end = '2014-12-01 00:00:00'
 
-    device.set_date_range(start, end, timezone)
+    device.set_date_range(start, end, 'US/Eastern')
 
     device.set_columns([
         'date',
@@ -92,7 +92,6 @@ def read_data_from_url():
     # for row in device.read_data_from_url():
 
 def read_data_from_file():
-    base_path = '/Users/larry/documents/978/data/final/energy-hourly-2014-11eg.csv'
 
     config = {
         'path': '/Users/larry/documents/978/data/final/energy-hourly-2014-11eg.csv',
