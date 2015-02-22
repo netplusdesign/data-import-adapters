@@ -123,8 +123,8 @@ class EGauge(object):
         # &s=3599         # skip rows, rows are seconds by default
         # &n=721          # number of rows to return (not counting skips)
         # &f=1417410000   # unix timestamp of the row before the first row to return
-        # &C              # delta-compressed data, values are for that unit of time only, not cumulative
-        # &Z=             # time zone format as per (http://pubs.opengroup.org/onlinepubs/009695399/)
+        # &C              # delta-compressed data, values are for unit of time only, not cumulative
+        # &Z=             # time zone format. See http://pubs.opengroup.org/onlinepubs/009695399/
         #     LST5        # local standard time
         #     LDT4        # local daylight time
         #     %2C M3.2.0  # ,month.week.day ... M = month format, 3 = March, 2 = 2nd week, 0=sunday
@@ -193,6 +193,3 @@ class EGauge(object):
             reader = csv.DictReader(resource, fieldnames=self.columns)
             for row in reader:
                 yield row
-
-    # read_data(base_url, start_date_aware, duration, interval, column_list)
-    # read_data(filepath, column_list)
