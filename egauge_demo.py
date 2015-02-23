@@ -1,6 +1,8 @@
 '''
     Module to demo use of eGauge adaptor.
 '''
+from datetime import datetime
+import pytz
 import json
 from adapters.egauge import EGauge
 
@@ -32,6 +34,7 @@ def read_data_from_url():
     device = EGauge(config)
 
     i=0
+    eastern = pytz.timezone('US/Eastern')
     rows = []
     for row in device.read_data_from_url():
         i = i + 1
@@ -39,11 +42,15 @@ def read_data_from_url():
             if row[column] is '':
                 print 'Row: %s, column: %s empty, convert value to 0' % (i, column)
                 row[column] = 0
+        # datetimes in device output are UTC
+        aware_dt = datetime.strptime(row['date'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.UTC)
+        # convert to local time
+        local_dt = eastern.normalize(aware_dt)
         data = {
             "row_id": i,
             "house_id": 0,
             "device_id": 10,
-            "date": row['date'],
+            "date": str(local_dt),
             "adjusted_load": float(row['used'])*1000 + float(row['gen'])*-1000, 
             "solar": float(row['gen'])*-1000,
             "used": float(row['used'])*1000,
@@ -120,6 +127,7 @@ def read_data_from_file():
             if row[column] is '':
                 print 'Row: %s, column: %s empty, convert value to 0' % (i, column)
                 row[column] = 0
+        # datetimes in csv output are already localized and normalized for timezone
         data = {
             "row_id": i,
             "house_id": 0,

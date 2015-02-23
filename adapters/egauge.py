@@ -49,10 +49,10 @@ class EGauge(object):
 
     def set_date_range(self, start_date, end_date, timezone):
         ''' External method to set duration and timestamp using date range '''
-        start_date = self.create_aware_datetime(start_date, timezone)
+        self.start_date = self.create_aware_datetime(start_date, timezone)
         self.end_date = self.create_aware_datetime(end_date, timezone)
         #self.end_timestamp = self.aware_date_to_timestamp(self.end_date)
-        self.duration = self.time_delta(start_date, self.end_date)
+        #self.duration = self.time_delta(start_date, self.end_date)
 
     def set_interval(self, interval):
         ''' External methid, given a keyword, set # of seconds for interval '''
@@ -83,38 +83,17 @@ class EGauge(object):
     def aware_date_to_timestamp(cls, aware_dt):
         ''' Given a timezone aware datetime, return a unix timestamp duration in hours '''
         epoch = datetime(1970, 01, 01, 0, 0, 0, 0, tzinfo=pytz.utc)
-        # get offset on seconds
-        offset = aware_dt.utcoffset().total_seconds()
         # convert aware_dt to utc
         utc_aware_dt = aware_dt.astimezone(pytz.utc)
         # subtract for timedelta
         timestamp = (utc_aware_dt - epoch).total_seconds()
-        timestamp = timestamp + offset
         return timestamp
 
     @classmethod
-    def time_delta(cls, dt_start, dt_end):
+    def time_delta(cls, dt_start, dt_end, interval):
         ''' given 2 datetimes, return the duration in hours '''
-        # switch to daylight time, subtract 1 from n (2 am is missing)
-        # tz_start = eastern.utcoffset(datetime(2014,3,1,0,0,0)).\
-        #            total_seconds()/3600 # = -14400/3600 = -5 hrs
-        # tz_end   = eastern.utcoffset(datetime(2014,4,1,0,0,0)).\
-        #            total_seconds()/3600 # = -18000/3600 = -4 hrs
-        # (-4) - (-5) = 1
-        # switch to standard time, add 1 to n value (there are 2 1am rows)
-        # tz_start = eastern.utcoffset(datetime(2014,11,1,0,0,0)).\
-        #            total_seconds()/3600 # = -14400/3600 = -4 hrs
-        # tz_end   = eastern.utcoffset(datetime(2014,12,1,0,0,0)).\
-        #            total_seconds()/3600 # = -18000/3600 = -5 hrs
-        # (-5) - (-4) = -1
-        try:
-            start_offset = dt_start.utcoffset().total_seconds() / 3600
-            end_offset = dt_end.utcoffset().total_seconds() / 3600
-            offset = end_offset - start_offset
-        except AttributeError:
-            offset = 0
-        delta_hours = (dt_end - dt_start).total_seconds() / 3600
-        return delta_hours + offset
+        delta = (dt_end - dt_start).total_seconds() / (interval+1)
+        return round(delta)
 
     def get_url_parameters(self):
         ''' Return GET parameters for URL '''
@@ -153,7 +132,7 @@ class EGauge(object):
         #parameters['c'] = 'c'
         #parameters['C'] = 'C'
         parameters['f'] = self.aware_date_to_timestamp(self.end_date)
-        parameters['n'] = self.duration
+        parameters['n'] = self.time_delta(self.start_date, self.end_date, self.interval) # duration
         parameters['s'] = self.interval
         #parameters['S'] = 'S'
         parameters['Z'] = 'LST%(LST)sLDT%(LDT)u,M%(LST_M)u.%(LST_W)u.%(LST_D)u/%(LST_h)s:%(LST_m)s,M%(LDT_M)u.%(LDT_W)u.%(LDT_D)u/%(LDT_h)s:%(LDT_m)s' % tz_parameters
