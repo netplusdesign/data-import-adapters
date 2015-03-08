@@ -7,27 +7,44 @@ import json
 from adapters.egauge import EGauge
 
 def read_data_from_url():
-    # egauge1 = http://192.168.1.8
-    # egauge2 = http://192.168.1.7
+    egauge1 = 'http://192.168.1.8'
+    egauge2 = 'http://192.168.1.7'
+
+    eg1_col_list = ['date',
+                    'used',
+                    'gen',
+                    'grid',
+                    'solar',
+                    'solar_plus',
+                    'water_heater',
+                    'ashp',
+                    'water_pump',
+                    'dryer',
+                    'washer',
+                    'dishwasher',
+                    'stove']
+
+    eg2_col_list = ['date',
+                    'used',
+                    'gen',
+                    'refrigerator',
+                    'living_room',
+                    'aux_heat_bedrooms',
+                    'aux_heat_living',
+                    'study',
+                    'barn',
+                    'basement_west',
+                    'basement_east',
+                    'ventilation',
+                    'ventilation_preheat',
+                    'kitchen_recept_rt']
 
     config = {
-        'base_url': 'http://192.168.1.8',
+        'base_url': egauge1,
         'start_datetime': '2014-04-01 00:00:00',
         'end_datetime': '2014-05-01 00:00:00',
         'timezone': 'US/Eastern',
-        'column_list':['date',
-                       'used',
-                       'gen',
-                       'grid',
-                       'solar',
-                       'solar_plus',
-                       'water_heater',
-                       'ashp',
-                       'water_pump',
-                       'dryer',
-                       'washer',
-                       'dishwasher',
-                       'stove'],
+        'column_list': eg1_col_list,
         'interval': 'hours'
     }
 
@@ -78,21 +95,7 @@ def read_data_from_url():
 
     device.set_date_range(start, end, 'US/Eastern')
 
-    device.set_columns([
-        'date',
-        'used',
-        'gen',
-        'refrigerator',
-        'living_room',
-        'aux_heat_bedrooms',
-        'aux_heat_living',
-        'study',
-        'barn',
-        'basement_west',
-        'basement_east',
-        'ventilation',
-        'ventilation_preheat',
-        'kitchen_recept_rt'])
+    device.set_columns(eg2_col_list)
 
     device.set_interval('hours')
 
@@ -102,19 +105,7 @@ def read_data_from_file():
 
     config = {
         'path': '/Users/larry/documents/978/data/final/energy-hourly-2014-11eg.csv',
-        'column_list':['date',
-                       'used',
-                       'gen',
-                       'grid',
-                       'solar',
-                       'solar_plus',
-                       'water_heater',
-                       'ashp',
-                       'water_pump',
-                       'dryer',
-                       'washer',
-                       'dishwasher',
-                       'stove'],
+        'column_list': eg1_col_list,
         'interval': 'hours'
     }
     device = EGauge(config)
