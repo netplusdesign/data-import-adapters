@@ -36,3 +36,5 @@ Install pytz and nose.
 ## Usage
 
 See egauge_demo.py
+
+start_date =< duration < end_date
