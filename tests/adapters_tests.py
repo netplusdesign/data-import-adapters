@@ -113,6 +113,15 @@ class TestEGaugeAdapters():
 
         assert_equal(url, assert_url)
 
+    def test_2_months(self):
+
+        start_dt = self.device.create_aware_datetime('2014-04-01 00:00:00', 'US/Eastern')
+        end_dt = self.device.create_aware_datetime('2014-06-01 00:00:00', 'US/Eastern')
+        interval = self.device.set_interval('hours')
+        duration = self.device.time_delta(start_dt, end_dt, interval)
+
+        assert_equal(duration, 1464.0)
+
     def xtest_read_data_from_url(self):
         # need to learn how to mock access to a url
         pass
