@@ -14,7 +14,10 @@ class EGauge(object):
 
     def __init__(self, config):
         try:
-            self.base_url = config['base_url']
+            if type(config['base_url']) is str:
+                self.base_url = [ config['base_url'] ]
+            else:
+                self.base_url = config['base_url']
         except KeyError:
             pass
 
@@ -32,7 +35,10 @@ class EGauge(object):
             pass
 
         try:
-            self.columns = config['column_list']
+            if type(config['column_list'][0]) is str:
+                self.columns = [ config['column_list'] ]
+            else:
+                self.columns = config['column_list']
         except KeyError:
             pass
 
