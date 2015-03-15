@@ -169,6 +169,20 @@ class EGauge(object):
                 print 'The server couldn\'t fulfill the request.'
                 print 'Error code: ', e.code
 
+    def read_data_from_url(self):
+        ''' External method, open URL(s) and return a list of combined values '''
+        i, first = 0, True
+        result = []
+        for uri, column in zip(self.base_url, self.columns):
+            for row in self.read_data_from_urls(self.compose_url(uri), column):
+                if first:
+                    result.append(row)
+                else:
+                    result[i].update(row)
+                i = i + 1
+            i, first = 0, False
+        return result
+
     def read_data_from_file(self):
         ''' As function says... '''
         with open(self.path, 'rU') as resource:
