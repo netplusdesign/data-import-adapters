@@ -178,7 +178,10 @@ class EGauge(object):
                 if first:
                     result.append(row)
                 else:
-                    result[i].update(row)
+                    if result[i]['date'] == row['date']:
+                        result[i].update(row)
+                    else:
+                        print 'Error: row %s doesn\'t match.' % i
                 i = i + 1
             i, first = 0, False
         return result
