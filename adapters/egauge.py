@@ -14,7 +14,10 @@ class EGauge(object):
 
     def __init__(self, config):
         try:
-            self.base_url = config['base_url']
+            if type(config['base_url']) is str:
+                self.base_url = [ config['base_url'] ]
+            else:
+                self.base_url = config['base_url']
         except KeyError:
             pass
 
@@ -32,7 +35,10 @@ class EGauge(object):
             pass
 
         try:
-            self.columns = config['column_list']
+            if type(config['column_list'][0]) is str:
+                self.columns = [ config['column_list'] ]
+            else:
+                self.columns = config['column_list']
         except KeyError:
             pass
 
@@ -138,21 +144,20 @@ class EGauge(object):
         parameters['Z'] = 'LST%(LST)sLDT%(LDT)u,M%(LST_M)u.%(LST_W)u.%(LST_D)u/%(LST_h)s:%(LST_m)s,M%(LDT_M)u.%(LDT_W)u.%(LDT_D)u/%(LDT_h)s:%(LDT_m)s' % tz_parameters
         return parameters
 
-    def get_url(self):
+    def compose_url(self, base_url):
         ''' Return url with encoded GET parameters. '''
         path = '/cgi-bin/egauge-show'
         # must add on extra parameters at end. eGauge doesn't like form &c= or &c=c, etc.
-        url = self.base_url + path + '?' + urlencode(self.get_url_parameters()) + '&c&C&S'
+        url = base_url + path + '?' + urlencode(self.get_url_parameters()) + '&c&C&S'
         # print '# %s' % url
         return url
 
-    def read_data_from_url(self):
-        ''' External method, open URL and return a generator '''
+    def read_data_from_urls(self, url, cols):
+        ''' Internal method, open single URL and return a generator '''
         try:
-            resource = urlopen(self.get_url())
-            #return self.parse_file(resource, self.columns, self.EGAUGE_SKIP)
+            resource = urlopen(url)
             resource.readline() * self.skip # Skip the header
-            reader = csv.DictReader(resource, fieldnames=self.columns)
+            reader = csv.DictReader(resource, fieldnames=cols)
             for row in reader:
                 yield row
             resource.close()
@@ -163,6 +168,20 @@ class EGauge(object):
             elif hasattr(e, 'code'):
                 print 'The server couldn\'t fulfill the request.'
                 print 'Error code: ', e.code
+
+    def read_data_from_url(self):
+        ''' External method, open URL(s) and return a list of combined values '''
+        i, first = 0, True
+        result = []
+        for uri, column in zip(self.base_url, self.columns):
+            for row in self.read_data_from_urls(self.compose_url(uri), column):
+                if first:
+                    result.append(row)
+                else:
+                    result[i].update(row)
+                i = i + 1
+            i, first = 0, False
+        return result
 
     def read_data_from_file(self):
         ''' As function says... '''
