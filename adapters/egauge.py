@@ -138,11 +138,11 @@ class EGauge(object):
         parameters['Z'] = 'LST%(LST)sLDT%(LDT)u,M%(LST_M)u.%(LST_W)u.%(LST_D)u/%(LST_h)s:%(LST_m)s,M%(LDT_M)u.%(LDT_W)u.%(LDT_D)u/%(LDT_h)s:%(LDT_m)s' % tz_parameters
         return parameters
 
-    def get_url(self):
+    def compose_url(self, base_url):
         ''' Return url with encoded GET parameters. '''
         path = '/cgi-bin/egauge-show'
         # must add on extra parameters at end. eGauge doesn't like form &c= or &c=c, etc.
-        url = self.base_url + path + '?' + urlencode(self.get_url_parameters()) + '&c&C&S'
+        url = base_url + path + '?' + urlencode(self.get_url_parameters()) + '&c&C&S'
         # print '# %s' % url
         return url
 
