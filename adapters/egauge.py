@@ -152,13 +152,12 @@ class EGauge(object):
         # print '# %s' % url
         return url
 
-    def read_data_from_url(self):
-        ''' External method, open URL and return a generator '''
+    def read_data_from_urls(self, url, cols):
+        ''' Internal method, open single URL and return a generator '''
         try:
-            resource = urlopen(self.get_url())
-            #return self.parse_file(resource, self.columns, self.EGAUGE_SKIP)
+            resource = urlopen(url)
             resource.readline() * self.skip # Skip the header
-            reader = csv.DictReader(resource, fieldnames=self.columns)
+            reader = csv.DictReader(resource, fieldnames=cols)
             for row in reader:
                 yield row
             resource.close()
