@@ -103,12 +103,12 @@ class TestEGaugeAdapters():
         assert_equal(parameters['s'], 3599)
         assert_equal(parameters['Z'], 'LST-5.0LDT-4,M3.2.0/02:00,M11.1.0/02:00')
     
-    def test_get_url(self):
+    def test_compose_url(self):
 
         self.device.set_interval('hourslala')
         self.device.set_date_range('2014-04-01 00:00:00', '2014-05-01 00:00:00', 'US/Eastern')
 
-        url = self.device.get_url()
+        url = self.device.compose_url(self.device.base_url[0]) # 'http://0.0.0.0'
         assert_url = 'http://0.0.0.0/cgi-bin/egauge-show?s=3599&n=720.0&Z=LST-5.0LDT-4%2CM3.2.0%2F02%3A00%2CM11.1.0%2F02%3A00&f=1398916800.0&c&C&S'
 
         assert_equal(url, assert_url)
