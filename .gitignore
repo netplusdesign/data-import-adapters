@@ -1,3 +1,4 @@
 /env
-*.komodoproject
+/env3
 *.pyc
+*.json

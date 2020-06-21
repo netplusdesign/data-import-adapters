@@ -1,105 +1,126 @@
 '''
-    Package to read eGauge data directly from device.
+    Package to read eGauge data directly from device or 
+    a CSV file downloaded from the device.
+    Information on the query paramenters:
+    https://www.egauge.net/media/support/docs/egauge-xml-api.pdf
 '''
 import csv
 
-from urllib2 import urlopen, URLError
-from urllib import urlencode
+import requests
+from requests.exceptions import HTTPError
+from urllib.parse import urlencode
 
 from datetime import datetime
 import pytz
 
-class EGauge(object):
-    ''' Construct with base_url or filepath '''
+class EGauge:
+    ''' Construct with base_urls or filename '''
 
     def __init__(self, config):
+        # assumes all times are local
+        self.DATE_FORMAT = '%Y-%m-%d %H:%M:%S' 
+        # skip header row retuned with eGauge CSV format
+        self.SKIP = 1
+        self.URL_PATH = '/cgi-bin/egauge-show'
+        # determine number of rows to skip (s). s is in seconds unless
+        #  day (d), hour (h) or minute (m) is used.
+        #  For hours, use s=3599 which is 1 hour
+        self.INTERVALS = {
+            'day': 86399,
+            'hour': 3599,
+            'minute': 59
+        }
+
         try:
-            if type(config['base_url']) is str:
-                self.base_url = [ config['base_url'] ]
-            else:
-                self.base_url = config['base_url']
+            self.set_base_urls(config['base_urls'])
         except KeyError:
             pass
 
         try:
-            self.path = config['path']
+            self.filename = config['filename']
         except KeyError:
             pass
 
         try:
             self.set_date_range(config['start_datetime'],
-                                config['end_datetime'],
-                                config['timezone'])
-            self.interval = self.set_interval(config['interval'])
+                                config['end_datetime'])
         except KeyError:
             pass
 
         try:
-            if type(config['column_list'][0]) is str:
-                self.columns = [ config['column_list'] ]
-            else:
-                self.columns = config['column_list']
+            self.set_interval(config['interval'])
         except KeyError:
             pass
 
-        # skip header row retuned with CSV format
-        self.skip = 1
+        try:
+            self.tzone = pytz.timezone(config['timezone'])
+        except KeyError:
+            # default to eastern timezone
+            self.tzone = pytz.timezone('US/Eastern')
 
-    def set_base_url(self, base_url):
+        try:
+            self.conversion_factor = float(config['conversion_factor'])
+        except KeyError:
+            self.conversion_factor = 1.0
+
+    def set_base_urls(self, base_urls):
         ''' External method to set base url '''
-        self.base_url = base_url
+        if type(base_urls) is list:
+            self.base_urls = base_urls
+        elif type(base_urls) is str:
+            self.base_urls = [ base_urls ]
 
-    def set_path(self, path):
-        ''' External method to set filepath '''
-        self.path = path
+    def set_filename(self, filename):
+        ''' External method to set filename '''
+        self.filename = filename
 
-    def set_date_range(self, start_date, end_date, timezone):
-        ''' External method to set duration and timestamp using date range '''
-        self.start_date = self.create_aware_datetime(start_date, timezone)
-        self.end_date = self.create_aware_datetime(end_date, timezone)
-        #self.end_timestamp = self.aware_date_to_timestamp(self.end_date)
-        #self.duration = self.time_delta(start_date, self.end_date)
+    def set_date_range(self, start_date, end_date):
+        ''' External method to set duration using date range '''
+        self.start_date = self.create_datetime(start_date)
+        self.end_date = self.create_datetime(end_date)
 
     def set_interval(self, interval):
-        ''' External methid, given a keyword, set # of seconds for interval '''
-        # determine number of rows to skip (s). s is in seconds unless
-        #  day (d), hour (h) or minute (m) is used.
-        #  For hours, use s=3599 which is 1 hour
+        ''' External method, given a keyword, set # of seconds for interval '''
         if 'day' in interval:
-            self.interval = 86399
+            self.interval = 'day'
         elif 'hour' in interval:
-            self.interval = 3599
+            self.interval = 'hour'
         elif 'minute' in interval:
-            self.interval = 59
-        return self.interval
+            self.interval = 'hour'
 
-    def set_columns(self, columns):
-        ''' External method to set column list '''
-        self.columns = columns
+    def create_datetime(self, date_str):
+        date_time = datetime.strptime(date_str, self.DATE_FORMAT) 
+        return date_time
 
-    @classmethod
-    def create_aware_datetime(cls, date_string, zone):
-        ''' Return a timezone aware datetime '''
-        fmt = '%Y-%m-%d %H:%M:%S'
-        tzone = pytz.timezone(zone)
-        date = tzone.localize(datetime.strptime(date_string, fmt))
-        return date
+    def time_delta(self, dt_start, dt_end, interval):
+        ''' given 2 datetimes, return the duration in interval '''
+        # convert datetimes to aware datetimes, so that if range includes daylight savings
+        #  then the delta will be correct
+        dt_end = self.tzone.localize(dt_end)
+        dt_start = self.tzone.localize(dt_start)
+        delta = round((dt_end - dt_start).total_seconds() / (interval+1), 1)
+        return delta
 
-    @classmethod
-    def aware_date_to_timestamp(cls, aware_dt):
-        ''' Given a timezone aware datetime, return a unix timestamp duration in hours '''
-        epoch = datetime(1970, 01, 01, 0, 0, 0, 0, tzinfo=pytz.utc)
-        # convert aware_dt to utc
-        utc_aware_dt = aware_dt.astimezone(pytz.utc)
-        # subtract for timedelta
-        timestamp = (utc_aware_dt - epoch).total_seconds()
-        return timestamp
+    def format_row(self, row):
+        # row[0] can be a str (from file) or a timestamp (from URL). 
+        try:
+            row[0] = datetime.fromtimestamp(int(row[0]))
+        except:
+            row[0] = self.create_datetime(row[0])
+        for i in range(1, len(row)):
+            row[i] = float(row[i]) * self.conversion_factor if row[i] else 0
+        return row
 
-    @classmethod
-    def time_delta(cls, dt_start, dt_end, interval):
-        ''' given 2 datetimes, return the duration in hours '''
-        delta = (dt_end - dt_start).total_seconds() / (interval+1)
-        return round(delta)
+    def in_date_range(self, date_time):
+        # if date range exists, then check if in date range
+        if hasattr(self, 'start_date') and hasattr(self, 'end_date'):
+            if date_time >= self.start_date and date_time < self.end_date:
+                return True
+            else:
+                return False
+        else:
+            # return all dates in file
+            return True
 
     def get_url_parameters(self):
         ''' Return GET parameters for URL '''
@@ -118,79 +139,61 @@ class EGauge(object):
         #     %2C M11.1.0 # ,month.week.day ... M = month format, 11 = Nov, 1 = 1st week, 0=sunday
         #     %2F 02      # /hour
         #     %3A 00      # :minute
-        tz_parameters = {}
-        tz_parameters['LST'] = self.end_date.tzinfo.utcoffset(datetime(self.end_date.year, 1, 1, 0, 0, 0)).\
-                                total_seconds()/3600 # 5hrs for EST
-        tz_parameters['LST_M'] = 3                  # US only, need to fix
-        tz_parameters['LST_W'] = 2                  # ditto
-        tz_parameters['LST_D'] = 0                  # ditto
-        tz_parameters['LST_h'] = '{:02}'.format(2)  # 2 am
-        tz_parameters['LST_m'] = '{:02}'.format(0)
-        tz_parameters['LDT'] = self.end_date.tzinfo.utcoffset(datetime(self.end_date.year, 6, 1, 0, 0, 0)).\
-                                total_seconds()/3600 # 4hrs for EDT
-        tz_parameters['LDT_M'] = 11                 # US only, need to fix
-        tz_parameters['LDT_W'] = 1                  # ditto
-        tz_parameters['LDT_D'] = 0                  # ditto
-        tz_parameters['LDT_h'] = '{:02}'.format(2)  # 2 am
-        tz_parameters['LDT_m'] = '{:02}'.format(0)
 
         parameters = {}
-        #parameters['c'] = 'c'
-        #parameters['C'] = 'C'
-        parameters['f'] = self.aware_date_to_timestamp(self.end_date)
-        parameters['n'] = self.time_delta(self.start_date, self.end_date, self.interval) # duration
-        parameters['s'] = self.interval
-        #parameters['S'] = 'S'
-        parameters['Z'] = 'LST%(LST)sLDT%(LDT)u,M%(LST_M)u.%(LST_W)u.%(LST_D)u/%(LST_h)s:%(LST_m)s,M%(LDT_M)u.%(LDT_W)u.%(LDT_D)u/%(LDT_h)s:%(LDT_m)s' % tz_parameters
+        # parameters['c'] = None
+        # parameters['C'] = None
+        parameters['f'] = self.end_date.timestamp()
+        parameters['n'] = self.time_delta(self.start_date, self.end_date,\
+                                          self.INTERVALS[self.interval]) # duration
+        parameters['s'] = self.INTERVALS[self.interval]
+        # parameters['S'] = None
+        # must add on extra parameters at end. eGauge doesn't like form &c= or &c=c, etc.
+        parameters = urlencode(parameters) + '&c&C&S'
         return parameters
 
     def compose_url(self, base_url):
         ''' Return url with encoded GET parameters. '''
-        path = '/cgi-bin/egauge-show'
-        # must add on extra parameters at end. eGauge doesn't like form &c= or &c=c, etc.
-        url = base_url + path + '?' + urlencode(self.get_url_parameters()) + '&c&C&S'
-        # print '# %s' % url
+        url = base_url + self.URL_PATH + '?' + self.get_url_parameters()
         return url
 
-    def read_data_from_urls(self, url, cols):
-        ''' Internal method, open single URL and return a generator '''
+    def read_data_from_url(self, url):
+        ''' Internal method, open single URL and return a generator '''        
         try:
-            resource = urlopen(url)
-            resource.readline() * self.skip # Skip the header
-            reader = csv.DictReader(resource, fieldnames=cols)
-            for row in reader:
-                yield row
-            resource.close()
-        except URLError as e:
-            if hasattr(e, 'reason'):
-                print 'Failed to reach a server.'
-                print 'Reason: ', e.reason
-            elif hasattr(e, 'code'):
-                print 'The server couldn\'t fulfill the request.'
-                print 'Error code: ', e.code
+            with requests.get(url, stream=True) as r:
+                rows = r.iter_lines()
+                next(rows) * self.SKIP
+                rows = (row.decode('utf-8') for row in rows)
+                for row in csv.reader(rows):
+                    if row and len(row) > 0:
+                        row = self.format_row(row)
+                        yield(row)
+        except HTTPError as http_err:
+            print(f'HTTP error occurred: {http_err}') 
+        except Exception as err:
+            print(f'Other error occurred: {err}') 
+        else:
+            pass
 
-    def read_data_from_url(self):
+    def read_data_from_urls(self):
         ''' External method, open URL(s) and return a list of combined values '''
         i, first = 0, True
         result = []
-        for uri, column in zip(self.base_url, self.columns):
-            for row in self.read_data_from_urls(self.compose_url(uri), column):
+        for base_url in self.base_urls:
+            for row in self.read_data_from_url(self.compose_url(base_url)):
                 if first:
-                    result.append(row)
+                    result.append(row) 
                 else:
-                    if result[i]['date'] == row['date']:
-                        result[i].update(row)
-                    else:
-                        print 'Error: row %s doesn\'t match.' % i
-                i = i + 1
+                    result[i] = result[i] + row 
+                i += 1
             i, first = 0, False
         return result
 
     def read_data_from_file(self):
-        ''' As function says... '''
-        with open(self.path, 'rU') as resource:
-            #return self.parse_file(resource, self.columns, self.EGAUGE_SKIP)
-            resource.readline() * self.skip # Skip the header
-            reader = csv.DictReader(resource, fieldnames=self.columns)
-            for row in reader:
-                yield row
+        ''' External method, read data exported from an eGauge file '''
+        with open(self.filename, 'rU') as resource:
+            resource.readline() * self.SKIP # Skip the header
+            reader = csv.reader(resource)
+            for row in map(self.format_row, reader):
+                if self.in_date_range(row[0]):
+                    yield row

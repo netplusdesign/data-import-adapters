@@ -2,13 +2,19 @@
     Module to demo use of eGauge adaptor.
 '''
 from datetime import datetime
-import pytz
 import json
 from adapters.egauge import EGauge
 
-egauge1 = 'http://192.168.1.8'
-egauge2 = 'http://192.168.1.7'
-eg1_col_list = ['date',
+egauge1 = 'http://192.168.2.27'
+egauge2 = 'http://192.168.2.28'
+'''
+    Note: sequence of columns must align with output from eGauge register and
+    and any additional columns added.
+    If combining data from multiple URLs there can be no duplicate
+    column names.
+'''
+eg1_col_list = [
+                'date',
                 'used',
                 'gen',
                 'grid',
@@ -20,8 +26,11 @@ eg1_col_list = ['date',
                 'dryer',
                 'washer',
                 'dishwasher',
-                'stove']
-eg2_col_list = ['date',
+                'stove'
+               ]
+
+eg2_col_list = [
+                'date_dup',
                 'used_dup',
                 'gen_dup',
                 'refrigerator',
@@ -32,56 +41,48 @@ eg2_col_list = ['date',
                 'barn',
                 'basement_west',
                 'basement_east',
-                'ventilation',
-                'ventilation_preheat',
-                'kitchen_recept_rt']
+                'kitchen_recept_rt',
+                'ventilation'
+               ]
+ref_col_list = [
+                'adjusted_load',
+                'row_id',
+                'house_id',
+                'device_id'
+               ]
 
-def read_data_from_url():
+
+def read_data_from_one_url():
 
     # single device example
+    # all datetimes are assumed to be local
     config = {
-        'base_url': egauge1,
-        'start_datetime': '2014-04-01 00:00:00',
-        'end_datetime': '2014-05-01 00:00:00',
-        'timezone': 'US/Eastern',
-        'column_list': eg1_col_list,
-        'interval': 'hours'
+        'base_urls': egauge1,
+        'start_datetime': '2014-11-01 00:00:00', # inclusive
+        'end_datetime': '2014-12-01 00:00:00', # exclusive
+        'timezone': 'US/Eastern', # optional, defaults to EST
+        'interval': 'hours',
+        'conversion_factor': -1
     }
-
     device = EGauge(config)
 
     i=0
-    eastern = pytz.timezone('US/Eastern')
     rows = []
-    for row in device.read_data_from_url():
-        i = i + 1
-        for column in row:
-            if row[column] is '':
-                print 'Row: %s, column: %s empty, convert value to 0' % (i, column)
-                row[column] = 0
-        # datetimes in device output are UTC
-        aware_dt = datetime.strptime(row['date'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.UTC)
-        # convert to local time
-        local_dt = eastern.normalize(aware_dt)
-        data = {
-            "row_id": i,
-            "house_id": 0,
-            "device_id": 10,
-            "date": str(local_dt),
-            "adjusted_load": float(row['used'])*1000 + float(row['gen'])*-1000, 
-            "solar": float(row['gen'])*-1000,
-            "used": float(row['used'])*1000,
-            "water_heater": float(row['water_heater'])*-1000,
-            "ashp": float(row['ashp'])*-1000,
-            "water_pump": float(row['water_pump'])*-1000,
-            "dryer": float(row['dryer'])*-1000,
-            "washer": float(row['washer'])*-1000,
-            "dishwasher": float(row['dishwasher'])*-1000,
-            "stove": float(row['stove'])*-1000
-        }
-        rows.append(data)
-    print json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': '))
-    #return rows
+    columns = eg1_col_list + ref_col_list
+    for row in device.read_data_from_urls():
+        i += 1
+        # for each row, add row_id, house_id, device_id...
+        ref_columns = [i, 0, 10]
+        # and adjusted load
+        adjusted_load = [ row[1] *-1 + row[2] ]
+        # Also make date a string
+        row[0] = str(row[0])
+        # Add columns together
+        row = row + adjusted_load + ref_columns
+        # create a dict using column names
+        row = dict(zip(columns, row))
+        rows.append(row)
+    print(json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': ')))
 
     # could change settings and do it again
     # =====================================
@@ -93,111 +94,86 @@ def read_data_from_url():
     #start = '2014-11-01 00:00:00'
     #end = '2014-12-01 00:00:00'
 
-    device.set_date_range(start, end, 'US/Eastern')
+    device.set_date_range(start, end)
 
-    device.set_columns(eg2_col_list)
+    # for row in device.read_data_from_urls():
 
-    device.set_interval('hours')
+def read_data_from_two_urls():
 
-    # for row in device.read_data_from_url():
+    # multiple device example, aggrigates data across devices for the same timeframe
+        # Sample date ranges
 
-def read_data_from_urls():
+        # Standard, EST
+        #'start_datetime': '2014-04-01 00:00:00',
+        #'end_datetime': '2014-05-01 00:00:00',
 
-    # multiple device example
+        # Transition to Daylight Savings Time, EDT
+        #'start_datetime': '2014-11-01 00:00:00',
+        #'end_datetime': '2014-12-01 00:00:00',
+
+        # Transition to Standard Time, EST
+        #'start_datetime': '2020-03-08 00:00:00',
+        #'end_datetime': '2020-03-09 00:00:00',
+
     config = {
-        'base_url': [egauge1, egauge2],
-        'start_datetime': '2014-04-01 00:00:00',
-        'end_datetime': '2014-05-01 00:00:00',
-        'timezone': 'US/Eastern',
-        'column_list': [eg1_col_list, eg2_col_list],
-        'interval': 'hours'
+        'base_urls': [egauge1, egauge2],
+        'start_datetime': '2014-11-01 00:00:00',
+        'end_datetime': '2014-12-01 00:00:00',
+        'columns': [eg1_col_list, eg2_col_list],
+        'interval': 'hours',
+        'conversion_factor': -1
     }
     device = EGauge(config)
 
     i=0
-    eastern = pytz.timezone('US/Eastern')
     rows = []
-    for row in device.read_data_from_url():
-        i = i + 1
-        for column in row:
-            if row[column] is '':
-                print 'Row: %s, column: %s empty, convert value to 0' % (i, column)
-                row[column] = 0
-        # datetimes in device output are UTC
-        aware_dt = datetime.strptime(row['date'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.UTC)
-        # convert to local time
-        local_dt = eastern.normalize(aware_dt)
-        data = {
-            "row_id": i,
-            "house_id": 0,
-            "device_id": 10,
-            "date": str(local_dt),
-            "adjusted_load": float(row['used'])*1000 + float(row['gen'])*-1000, 
-            "solar": float(row['gen'])*-1000,
-            "used": float(row['used'])*1000,
-            "water_heater": float(row['water_heater'])*-1000,
-            "ashp": float(row['ashp'])*-1000,
-            "water_pump": float(row['water_pump'])*-1000,
-            "dryer": float(row['dryer'])*-1000,
-            "washer": float(row['washer'])*-1000,
-            "dishwasher": float(row['dishwasher'])*-1000,
-            "stove": float(row['stove'])*-1000,
-            "refrigerator": float(row['refrigerator'])*-1000,
-            "living_room": float(row['living_room'])*-1000,
-            "aux_heat_bedrooms": float(row['aux_heat_bedrooms'])*-1000,
-            "aux_heat_living": float(row['aux_heat_living'])*-1000,
-            "study": float(row['study'])*-1000,
-            "barn": float(row['barn'])*-1000,
-            "basement_west": float(row['basement_west'])*-1000,
-            "basement_east": float(row['basement_east'])*-1000,
-            "ventilation": float(row['ventilation'])*-1000,
-            "ventilation_preheat": float(row['ventilation_preheat'])*-1000,
-            "kitchen_recept_rt": float(row['kitchen_recept_rt'])*-1000
-        }
-        rows.append(data)
-    print json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': '))
-    #return rows
+    columns = eg1_col_list + eg2_col_list + ref_col_list
+    for row in device.read_data_from_urls():
+        i += 1
+        # for each row, add row_id, house_id, device_id...
+        ref_columns = [i, 0, 10]
+        # and adjusted load
+        adjusted_load = [ row[1] *-1 + row[2] ]
+        # Also make dates strings
+        row[0] = str(row[0])
+        row[13] = str(row[13])
+        # Add columns together
+        row = row + adjusted_load + ref_columns
+        # create a dict using column names
+        row = dict(zip(columns, row))
+        rows.append(row)
+    print(json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': ')))
 
 def read_data_from_file():
 
     config = {
-        'path': '/Users/larry/documents/978/data/final/energy-hourly-2014-11eg.csv',
-        'column_list': eg1_col_list,
-        'interval': 'hours'
+        'filename': '/Users/larry/documents/978/data/final/energy-hourly-2014-11eg.csv',
+        'start_datetime': '2014-11-01 00:00:00',
+        'end_datetime': '2014-12-01 00:00:00',
+        'conversion_factor': -1
     }
     device = EGauge(config)
 
     i=0
     rows = []
+    columns = eg1_col_list + ref_col_list
     for row in device.read_data_from_file():
-        i = i + 1
-        for column in row:
-            if row[column] is '':
-                print 'Row: %s, column: %s empty, convert value to 0' % (i, column)
-                row[column] = 0
-        # datetimes in csv output are already localized and normalized for timezone
-        data = {
-            "row_id": i,
-            "house_id": 0,
-            "device_id": 10,
-            "date": row['date'],
-            "adjusted_load": float(row['used'])*1000 + float(row['gen'])*-1000, 
-            "solar": float(row['gen'])*-1000,
-            "used": float(row['used'])*1000,
-            "water_heater": float(row['water_heater'])*-1000,
-            "ashp": float(row['ashp'])*-1000,
-            "water_pump": float(row['water_pump'])*-1000,
-            "dryer": float(row['dryer'])*-1000,
-            "washer": float(row['washer'])*-1000,
-            "dishwasher": float(row['dishwasher'])*-1000,
-            "stove": float(row['stove'])*-1000
-        }
-        rows.append(data)
-    print json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': '))
-    #return rows
+        i += 1
+        # for each row, add row_id, house_id, device_id...
+        ref_columns = [i, 0, 10]
+        # and adjusted load
+        adjusted_load = [ row[1] *-1 + row[2] ]
+        # Also make date a string
+        row[0] = str(row[0])
+        # Add columns together
+        row = row + adjusted_load + ref_columns
+        # create a dict using column names
+        row = dict(zip(columns, row))
+        rows.append(row)
+    print(json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': ')))
 
 if __name__ == "__main__":
 
-    #read_data_from_url()
-    read_data_from_urls()
-    #read_data_from_file()
+    #read_data_from_one_url()
+    #read_data_from_two_urls()
+    read_data_from_file()
