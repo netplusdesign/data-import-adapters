@@ -48,6 +48,11 @@ class EGauge:
             pass
 
         try:
+            self.set_columns(config['columns'])
+        except KeyError:
+            pass
+
+        try:
             self.set_interval(config['interval'])
         except KeyError:
             pass
@@ -79,6 +84,12 @@ class EGauge:
         self.start_date = self.create_datetime(start_date)
         self.end_date = self.create_datetime(end_date)
 
+    def set_columns(self, columns):
+        if type(columns[0]) is str:
+            self.columns = [ columns ]
+        elif type(columns[0]) is list:
+            self.columns = columns
+
     def set_interval(self, interval):
         ''' External method, given a keyword, set # of seconds for interval '''
         if 'day' in interval:
@@ -101,7 +112,7 @@ class EGauge:
         delta = round((dt_end - dt_start).total_seconds() / (interval+1), 1)
         return delta
 
-    def format_row(self, row):
+    def format_row(self, row, columns):
         # row[0] can be a str (from file) or a timestamp (from URL). 
         try:
             row[0] = datetime.fromtimestamp(int(row[0]))
@@ -109,6 +120,8 @@ class EGauge:
             row[0] = self.create_datetime(row[0])
         for i in range(1, len(row)):
             row[i] = float(row[i]) * self.conversion_factor if row[i] else 0
+        if hasattr(self, 'columns'):
+            row = dict(zip(columns, row))
         return row
 
     def in_date_range(self, date_time):
@@ -157,7 +170,7 @@ class EGauge:
         url = base_url + self.URL_PATH + '?' + self.get_url_parameters()
         return url
 
-    def read_data_from_url(self, url):
+    def read_data_from_url(self, url, column):
         ''' Internal method, open single URL and return a generator '''        
         try:
             with requests.get(url, stream=True) as r:
@@ -166,7 +179,7 @@ class EGauge:
                 rows = (row.decode('utf-8') for row in rows)
                 for row in csv.reader(rows):
                     if row and len(row) > 0:
-                        row = self.format_row(row)
+                        row = self.format_row(row, column)
                         yield(row)
         except HTTPError as http_err:
             print(f'HTTP error occurred: {http_err}') 
@@ -179,12 +192,12 @@ class EGauge:
         ''' External method, open URL(s) and return a list of combined values '''
         i, first = 0, True
         result = []
-        for base_url in self.base_urls:
-            for row in self.read_data_from_url(self.compose_url(base_url)):
+        for base_url, column in zip(self.base_urls, self.columns):
+            for row in self.read_data_from_url(self.compose_url(base_url), column):
                 if first:
                     result.append(row) 
                 else:
-                    result[i] = result[i] + row 
+                    result[i] = {**result[i], **row}
                 i += 1
             i, first = 0, False
         return result
@@ -194,6 +207,7 @@ class EGauge:
         with open(self.filename, 'rU') as resource:
             resource.readline() * self.SKIP # Skip the header
             reader = csv.reader(resource)
-            for row in map(self.format_row, reader):
-                if self.in_date_range(row[0]):
+            for row in reader:
+                row = self.format_row(row, self.columns[0])
+                if self.in_date_range(row['date']):
                     yield row
