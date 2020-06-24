@@ -7,7 +7,8 @@ from adapters.egauge import EGauge
 
 egauge1 = 'http://192.168.2.27'
 egauge2 = 'http://192.168.2.28'
-
+filename1 = 'tests/test-data/energy-hourly-2015-11eg.csv'
+filename2 = 'tests/test-data/energy-hourly-2015-11eg2.csv'
 '''
     Note: sequence of columns must align with output from eGauge register.
 '''
@@ -28,7 +29,7 @@ eg1_col_list = [
                ]
 
 eg2_col_list = [
-                'date',
+                'date_dup',
                 'used_dup',
                 'gen_dup',
                 'refrigerator',
@@ -41,6 +42,23 @@ eg2_col_list = [
                 'basement_east',
                 'kitchen_recept_rt',
                 'ventilation'
+               ]
+# older file format
+eg2x_col_list = [
+                'date_dup',
+                'used_dup',
+                'gen_dup',
+                'refrigerator',
+                'living_room',
+                'aux_heat_bedrooms',
+                'aux_heat_living',
+                'study',
+                'barn',
+                'basement_west',
+                'basement_east',
+                'ventilation',
+                'ventilation_pre_heat',
+                'kitchen_recept_rt'
                ]
 # additional static colunns
 ref_columns = {
@@ -68,10 +86,10 @@ def read_data_from_one_url():
     #'end_datetime': '2020-03-09 00:00:00',
 
     config = {
-        'base_urls': egauge1,
+        'locations': egauge1,
         'columns': eg1_col_list,
-        'start_datetime': '2014-11-01 00:00:00', # inclusive
-        'end_datetime': '2014-12-01 00:00:00', # exclusive
+        'start_datetime': '2015-11-01 00:00:00', # inclusive
+        'end_datetime': '2015-12-01 00:00:00', # exclusive
         'timezone': 'US/Eastern', # optional, defaults to EST
         'interval': 'hours',
         'conversion_factor': -1
@@ -80,7 +98,7 @@ def read_data_from_one_url():
 
     i=0
     rows = []
-    for row in device.read_data_from_urls():
+    for row in device.read_data():
         i += 1
         # For each row add calculated value for adjusted load
         adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
@@ -111,10 +129,10 @@ def read_data_from_two_urls():
     ''' Multiple device example, aggrigates data across devices for the same timeframe '''
 
     config = {
-        'base_urls': [egauge1, egauge2],
+        'locations': [egauge1, egauge2],
         'columns': [eg1_col_list, eg2_col_list],
-        'start_datetime': '2014-11-01 00:00:00',
-        'end_datetime': '2014-12-01 00:00:00',
+        'start_datetime': '2015-11-01 00:00:00',
+        'end_datetime': '2015-12-01 00:00:00',
         'interval': 'hours',
         'conversion_factor': -1
     }
@@ -122,17 +140,21 @@ def read_data_from_two_urls():
 
     i=0
     rows = []
-    for row in device.read_data_from_urls():
+    for row in device.read_data():
         i += 1
-        # For each row add calculated value for adjusted load
-        adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
-        # set row_id
-        ref_columns['row_id'] = i
-        # And make date a string
-        row['date'] = str(row['date'])
-        #row['date_dup'] = str(row['date_dup'])
-        # join them all together and add to list
-        rows.append({**row, **adjusted_load, **ref_columns})
+        if row['date'] == row['date_dup']:
+            # For each row add calculated value for adjusted load
+            adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
+            # set row_id
+            ref_columns['row_id'] = i
+            # And make date a string
+            row['date'] = str(row['date'])
+            row['date_dup'] = str(row['date_dup'])
+            #row['date_dup'] = str(row['date_dup'])
+            # join them all together and add to list
+            rows.append({**row, **adjusted_load, **ref_columns})
+        else:
+            print(f"dates don't match, row: {i}")
     print(json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': ')))
 
 def read_data_from_file():
@@ -140,30 +162,65 @@ def read_data_from_file():
     ''' Read data from a file exported from eGauge '''
 
     config = {
-        'filename': '/Users/larry/documents/978/data/final/energy-hourly-2014-11eg.csv',
+        'locations': filename1,
         'columns': eg1_col_list,
-        'start_datetime': '2014-11-01 00:00:00',
-        'end_datetime': '2014-12-01 00:00:00',
+        'start_datetime': '2015-11-01 00:00:00',
+        'end_datetime': '2015-12-01 00:00:00',
         'conversion_factor': -1
     }
     device = EGauge(config)
 
     i=0
     rows = []
-    for row in device.read_data_from_file():
+    for row in device.read_data():
         i += 1
-        # For each row add calculated value for adjusted load
-        adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
-        # set row_id
-        ref_columns['row_id'] = i
-        # And make date a string
-        row['date'] = str(row['date'])
-        # join them all together and add to list
-        rows.append({**row, **adjusted_load, **ref_columns})
+        if device.in_date_range(row['date']):
+            # For each row add calculated value for adjusted load
+            adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
+            # set row_id
+            ref_columns['row_id'] = i
+            # And make date a string
+            row['date'] = str(row['date'])
+            # join them all together and add to list
+            rows.append({**row, **adjusted_load, **ref_columns})
+        else:
+            print(f"date not in range, row: {i}")
+    print(json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': ')))
+
+def read_data_from_files():
+
+    ''' Read data from 2 files exported from eGauge and join together '''
+
+    config = {
+        'locations': [ filename1, filename2 ],
+        'columns': [ eg1_col_list, eg2_col_list ],
+        'start_datetime': '2015-11-01 00:00:00',
+        'end_datetime': '2015-12-01 00:00:00',
+        'conversion_factor': -1
+    }
+    device = EGauge(config)
+
+    i=0
+    rows = []
+    for row in device.read_data():
+        i += 1
+        if device.in_date_range(row['date']) and row['date'] == row['date_dup']:
+            # For each row add calculated value for adjusted load
+            adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
+            # set row_id
+            ref_columns['row_id'] = i
+            # And make date a string
+            row['date'] = str(row['date'])
+            row['date_dup'] = str(row['date_dup'])
+            # join them all together and add to list
+            rows.append({**row, **adjusted_load, **ref_columns})
+        else:
+            print(f"dates don't match, row: {i}")
     print(json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': ')))
 
 if __name__ == "__main__":
 
+    #read_data_from_file()
+    read_data_from_files()
     #read_data_from_one_url()
     #read_data_from_two_urls()
-    read_data_from_file()

@@ -4,6 +4,7 @@
     Information on the query paramenters:
     https://www.egauge.net/media/support/docs/egauge-xml-api.pdf
 '''
+import os
 import csv
 
 import requests
@@ -32,12 +33,7 @@ class EGauge:
         }
 
         try:
-            self.set_base_urls(config['base_urls'])
-        except KeyError:
-            pass
-
-        try:
-            self.filename = config['filename']
+            self.set_locations(config['locations'])
         except KeyError:
             pass
 
@@ -68,16 +64,12 @@ class EGauge:
         except KeyError:
             self.conversion_factor = 1.0
 
-    def set_base_urls(self, base_urls):
+    def set_locations(self, locations):
         ''' External method to set base url '''
-        if type(base_urls) is list:
-            self.base_urls = base_urls
-        elif type(base_urls) is str:
-            self.base_urls = [ base_urls ]
-
-    def set_filename(self, filename):
-        ''' External method to set filename '''
-        self.filename = filename
+        if type(locations) is list:
+            self.locations = locations
+        elif type(locations) is str:
+            self.locations = [ locations ]
 
     def set_date_range(self, start_date, end_date):
         ''' External method to set duration using date range '''
@@ -120,8 +112,7 @@ class EGauge:
             row[0] = self.create_datetime(row[0])
         for i in range(1, len(row)):
             row[i] = float(row[i]) * self.conversion_factor if row[i] else 0
-        if hasattr(self, 'columns'):
-            row = dict(zip(columns, row))
+        row = dict(zip(columns, row))
         return row
 
     def in_date_range(self, date_time):
@@ -188,12 +179,26 @@ class EGauge:
         else:
             pass
 
-    def read_data_from_urls(self):
+    def read_data_from_file(self, filename, column):
+        ''' Internal method, read data exported from an eGauge file '''
+        filename = os.path.join(os.getcwd(), filename)
+        with open(filename, 'rU') as resource:
+            resource.readline() * self.SKIP # Skip the header
+            reader = csv.reader(resource)
+            for row in reader:
+                row = self.format_row(row, column)
+                yield row
+
+    def read_data(self):
         ''' External method, open URL(s) and return a list of combined values '''
         i, first = 0, True
         result = []
-        for base_url, column in zip(self.base_urls, self.columns):
-            for row in self.read_data_from_url(self.compose_url(base_url), column):
+        for location, column in zip(self.locations, self.columns):
+            if location.startswith('http'):
+                data = self.read_data_from_url(self.compose_url(location), column)
+            else:
+                data = self.read_data_from_file(location, column)
+            for row in data:
                 if first:
                     result.append(row) 
                 else:
@@ -201,13 +206,3 @@ class EGauge:
                 i += 1
             i, first = 0, False
         return result
-
-    def read_data_from_file(self):
-        ''' External method, read data exported from an eGauge file '''
-        with open(self.filename, 'rU') as resource:
-            resource.readline() * self.SKIP # Skip the header
-            reader = csv.reader(resource)
-            for row in reader:
-                row = self.format_row(row, self.columns[0])
-                if self.in_date_range(row['date']):
-                    yield row

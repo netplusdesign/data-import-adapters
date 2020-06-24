@@ -10,7 +10,7 @@ class TestEGaugeAdapters():
     def setup(self):
 
         config = {
-            'base_urls': 'http://0.0.0.0',
+            'locations': 'http://0.0.0.0',
             'start_datetime': '2014-04-01 00:00:00',
             'end_datetime': '2014-05-01 00:00:00',
             'timezone': 'US/Eastern',
@@ -89,7 +89,7 @@ class TestEGaugeAdapters():
         self.device.set_interval('hourslala')
         self.device.set_date_range('2014-04-01 00:00:00', '2014-05-01 00:00:00')
 
-        url = self.device.compose_url(self.device.base_urls[0])
+        url = self.device.compose_url(self.device.locations[0])
 
         query = urlparse(url).query
         query_components = dict()
