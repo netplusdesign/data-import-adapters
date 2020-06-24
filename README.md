@@ -23,11 +23,9 @@ Activate the environment
 
 `. env/bin/activate`
 
-Install pytz and nose.
+Install dependencies
 
-`pip install pytz`
-
-`pip install nose`
+`pip install -r requirements.txt`
 
 ## Test
 
