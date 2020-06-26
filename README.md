@@ -17,11 +17,11 @@ I use these packages to get energy and temperature data into my home performance
 
 Create a virtual environment
 
-`virtualenv env`
+`python3 -m venv env`
 
 Activate the environment
 
-`. env/bin/activate`
+`source env/bin/activate`
 
 Install dependencies
 
@@ -35,4 +35,4 @@ Install dependencies
 
 See egauge_demo.py
 
-start_date =< duration < end_date
+start_date <= duration < end_date

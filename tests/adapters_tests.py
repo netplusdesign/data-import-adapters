@@ -63,9 +63,9 @@ class TestEGaugeAdapters():
         start_dt = self.device.create_datetime('2014-03-01 00:00:00')
         end_dt = self.device.create_datetime('2014-04-01 00:00:00')
         self.device.set_interval('days')
-        duration = self.device.time_delta(start_dt, end_dt, self.device.INTERVALS[self.device.interval])
+        duration = self.device.time_delta(start_dt, end_dt, self.device._intervals[self.device.interval])
 
-        assert_equal(self.device.INTERVALS[self.device.interval], 86399)
+        assert_equal(self.device._intervals[self.device.interval], 86399)
         assert_equal(duration, 31)
 
     def test_get_url_parameters(self):
@@ -124,7 +124,7 @@ class TestEGaugeAdapters():
         start_dt = self.device.create_datetime('2014-04-01 00:00:00')
         end_dt = self.device.create_datetime('2014-06-01 00:00:00')
         self.device.set_interval('hours')
-        duration = self.device.time_delta(start_dt, end_dt, self.device.INTERVALS[self.device.interval])
+        duration = self.device.time_delta(start_dt, end_dt, self.device._intervals[self.device.interval])
 
         assert_equal(duration, 1464.0)
 

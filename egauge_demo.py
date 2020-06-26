@@ -220,7 +220,7 @@ def read_data_from_files():
 
 if __name__ == "__main__":
 
-    #read_data_from_file()
-    read_data_from_files()
+    read_data_from_file()
+    #read_data_from_files()
     #read_data_from_one_url()
     #read_data_from_two_urls()

@@ -1,32 +1,32 @@
 '''
-    Package to read eGauge data directly from device or 
+    Package to read eGauge data directly from device or
     a CSV file downloaded from the device.
     Information on the query paramenters:
     https://www.egauge.net/media/support/docs/egauge-xml-api.pdf
 '''
 import os
 import csv
-
-import requests
-from requests.exceptions import HTTPError
-from urllib.parse import urlencode
-
 from datetime import datetime
+
+from urllib.parse import urlencode
+from requests.exceptions import HTTPError
+
 import pytz
+import requests
 
 class EGauge:
     ''' Construct with base_urls or filename '''
+    # pylint: disable=too-many-instance-attributes
+    # pylint: disable=expression-not-assigned
 
     def __init__(self, config):
-        # assumes all times are local
-        self.DATE_FORMAT = '%Y-%m-%d %H:%M:%S' 
         # skip header row retuned with eGauge CSV format
-        self.SKIP = 1
-        self.URL_PATH = '/cgi-bin/egauge-show'
+        self._skip = 1
+        self._url_path = '/cgi-bin/egauge-show'
         # determine number of rows to skip (s). s is in seconds unless
         #  day (d), hour (h) or minute (m) is used.
         #  For hours, use s=3599 which is 1 hour
-        self.INTERVALS = {
+        self._intervals = {
             'day': 86399,
             'hour': 3599,
             'minute': 59
@@ -66,10 +66,10 @@ class EGauge:
 
     def set_locations(self, locations):
         ''' External method to set base url '''
-        if type(locations) is list:
+        if isinstance(locations, list):
             self.locations = locations
-        elif type(locations) is str:
-            self.locations = [ locations ]
+        elif isinstance(locations, str):
+            self.locations = [locations]
 
     def set_date_range(self, start_date, end_date):
         ''' External method to set duration using date range '''
@@ -77,9 +77,10 @@ class EGauge:
         self.end_date = self.create_datetime(end_date)
 
     def set_columns(self, columns):
-        if type(columns[0]) is str:
-            self.columns = [ columns ]
-        elif type(columns[0]) is list:
+        ''' External method to set columns '''
+        if isinstance(columns[0], str):
+            self.columns = [columns]
+        elif isinstance(columns[0], list):
             self.columns = columns
 
     def set_interval(self, interval):
@@ -91,8 +92,10 @@ class EGauge:
         elif 'minute' in interval:
             self.interval = 'hour'
 
-    def create_datetime(self, date_str):
-        date_time = datetime.strptime(date_str, self.DATE_FORMAT) 
+    @staticmethod
+    def create_datetime(date_str):
+        ''' Internal method to convert string to naive date '''
+        date_time = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
         return date_time
 
     def time_delta(self, dt_start, dt_end, interval):
@@ -105,10 +108,11 @@ class EGauge:
         return delta
 
     def format_row(self, row, columns):
-        # row[0] can be a str (from file) or a timestamp (from URL). 
+        ''' Internal method to format values in row of data '''
+        # row[0] can be a str (from file) or a timestamp (from URL).
         try:
             row[0] = datetime.fromtimestamp(int(row[0]))
-        except:
+        except ValueError:
             row[0] = self.create_datetime(row[0])
         for i in range(1, len(row)):
             row[i] = float(row[i]) * self.conversion_factor if row[i] else 0
@@ -155,8 +159,8 @@ class EGauge:
         # parameters['C'] = None
         parameters['f'] = self.end_date.timestamp()
         parameters['n'] = self.time_delta(self.start_date, self.end_date,\
-                                          self.INTERVALS[self.interval]) # duration
-        parameters['s'] = self.INTERVALS[self.interval]
+                                          self._intervals[self.interval]) # duration
+        parameters['s'] = self._intervals[self.interval]
         # parameters['S'] = None
         # must add on extra parameters at end. eGauge doesn't like form &c= or &c=c, etc.
         parameters = urlencode(parameters) + '&c&C&S'
@@ -164,32 +168,27 @@ class EGauge:
 
     def compose_url(self, base_url):
         ''' Return url with encoded GET parameters. '''
-        url = base_url + self.URL_PATH + '?' + self.get_url_parameters()
+        url = base_url + self._url_path + '?' + self.get_url_parameters()
         return url
 
     def read_data_from_url(self, url, column):
-        ''' Internal method, open single URL and return a generator '''        
+        ''' Internal method, open single URL and return a generator '''
         try:
-            with requests.get(url, stream=True) as r:
-                rows = r.iter_lines()
-                next(rows) * self.SKIP
+            with requests.get(url, stream=True) as device:
+                rows = device.iter_lines()
                 rows = (row.decode('utf-8') for row in rows)
-                for row in csv.reader(rows):
-                    if row and len(row) > 0:
+                for count, row in enumerate(csv.reader(rows)):
+                    if count >= self._skip and len(row) > 0:
                         row = self.format_row(row, column)
-                        yield(row)
+                        yield row
         except HTTPError as http_err:
-            print(f'HTTP error occurred: {http_err}') 
-        except Exception as err:
-            print(f'Other error occurred: {err}') 
-        else:
-            pass
+            print(f'HTTP error occurred: {http_err}')
 
     def read_data_from_file(self, filename, column):
         ''' Internal method, read data exported from an eGauge file '''
         filename = os.path.join(os.getcwd(), filename)
         with open(filename, 'rU') as resource:
-            resource.readline() * self.SKIP # Skip the header
+            resource.readline() * self._skip # Skip the header
             reader = csv.reader(resource)
             for row in reader:
                 row = self.format_row(row, column)
@@ -206,7 +205,7 @@ class EGauge:
                 data = self.read_data_from_file(location, column)
             for row in data:
                 if first:
-                    result.append(row) 
+                    result.append(row)
                 else:
                     result[i] = {**result[i], **row}
                 i += 1
