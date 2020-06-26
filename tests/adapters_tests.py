@@ -11,8 +11,6 @@ class TestEGaugeAdapters():
 
         config = {
             'locations': 'http://0.0.0.0',
-            'start_datetime': '2014-04-01 00:00:00',
-            'end_datetime': '2014-05-01 00:00:00',
             'timezone': 'US/Eastern',
             'columns':['date',
                            'used',
@@ -129,6 +127,48 @@ class TestEGaugeAdapters():
         duration = self.device.time_delta(start_dt, end_dt, self.device.INTERVALS[self.device.interval])
 
         assert_equal(duration, 1464.0)
+
+    def test_in_date_range(self):
+        # No date range
+        dt = self.device.create_datetime('2014-02-01 00:00:00')
+        result = self.device.in_date_range(dt)
+        assert_equal(result, True)
+
+        # Start date only
+        self.device.start_date = (self.device.create_datetime('2014-03-01 00:00:00'))
+        dt = self.device.create_datetime('2014-03-01 00:00:00')
+        result = self.device.in_date_range(dt)
+        assert_equal(result, True)
+
+        self.device.start_date = (self.device.create_datetime('2014-03-01 00:00:00'))
+        dt = self.device.create_datetime('2014-02-01 00:00:00')
+        result = self.device.in_date_range(dt)
+        assert_equal(result, False)
+
+        # End date only
+        del self.device.start_date
+        self.device.end_date = (self.device.create_datetime('2014-04-01 00:00:00'))
+        dt = self.device.create_datetime('2014-03-31 00:00:00')
+        result = self.device.in_date_range(dt)
+        assert_equal(result, True)
+
+        dt = self.device.create_datetime('2014-04-01 00:00:00')
+        result = self.device.in_date_range(dt)
+        assert_equal(result, False)
+
+        # Start and End dates
+        self.device.set_date_range('2014-03-01 00:00:00', '2014-04-01 00:00:00')
+        dt = self.device.create_datetime('2014-03-01 00:00:00')
+        result = self.device.in_date_range(dt)
+        assert_equal(result, True)
+
+        dt = self.device.create_datetime('2014-03-31 23:00:00')
+        result = self.device.in_date_range(dt)
+        assert_equal(result, True)
+
+        dt = self.device.create_datetime('2014-04-01 00:00:00')
+        result = self.device.in_date_range(dt)
+        assert_equal(result, False)
 
     def xtest_read_data_from_url(self):
         # need to learn how to mock access to a url

@@ -116,15 +116,21 @@ class EGauge:
         return row
 
     def in_date_range(self, date_time):
+        ''' Internal method to check if date is in range for file reads '''
         # if date range exists, then check if in date range
-        if hasattr(self, 'start_date') and hasattr(self, 'end_date'):
-            if date_time >= self.start_date and date_time < self.end_date:
-                return True
-            else:
-                return False
-        else:
-            # return all dates in file
-            return True
+        result = False
+        if hasattr(self, 'start_date') and hasattr(self, 'end_date')\
+                    and self.start_date <= date_time < self.end_date:
+            result = True
+        elif hasattr(self, 'start_date') and not(hasattr(self, 'end_date'))\
+                    and self.start_date <= date_time:
+            result = True
+        elif not(hasattr(self, 'start_date')) and hasattr(self, 'end_date')\
+                    and date_time < self.end_date:
+            result = True
+        elif not hasattr(self, 'start_date') and not hasattr(self, 'end_date'):
+            result = True
+        return result
 
     def get_url_parameters(self):
         ''' Return GET parameters for URL '''
