@@ -174,17 +174,14 @@ def read_data_from_file():
     rows = []
     for row in device.read_data():
         i += 1
-        if device.in_date_range(row['date']):
-            # For each row add calculated value for adjusted load
-            adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
-            # set row_id
-            ref_columns['row_id'] = i
-            # And make date a string
-            row['date'] = str(row['date'])
-            # join them all together and add to list
-            rows.append({**row, **adjusted_load, **ref_columns})
-        else:
-            print(f"date not in range, row: {i}")
+        # For each row add calculated value for adjusted load
+        adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
+        # set row_id
+        ref_columns['row_id'] = i
+        # And make date a string
+        row['date'] = str(row['date'])
+        # join them all together and add to list
+        rows.append({**row, **adjusted_load, **ref_columns})
     print(json.dumps(rows, sort_keys=False, indent=4, separators=(',', ': ')))
 
 def read_data_from_files():
@@ -204,7 +201,7 @@ def read_data_from_files():
     rows = []
     for row in device.read_data():
         i += 1
-        if device.in_date_range(row['date']) and row['date'] == row['date_dup']:
+        if row['date'] == row['date_dup']:
             # For each row add calculated value for adjusted load
             adjusted_load = { 'adjusted_load': row['used'] *-1 + row['gen'] }
             # set row_id

@@ -1,10 +1,10 @@
-''' Adapter tests '''
+''' eGauge adapter tests '''
 
 from nose.tools import assert_equal
 from urllib.parse import urlparse, parse_qs
 from adapters.egauge import EGauge
 
-class TestEGaugeAdapters():
+class TestEGaugeAdapter():
 
     @classmethod
     def setup(self):
@@ -81,7 +81,7 @@ class TestEGaugeAdapters():
         assert_equal(float(parameters['n'][0]), 743.0)
         assert_equal(float(parameters['s'][0]), 3599)
         #assert_equal(parameters['Z'], 'LST-5.0LDT-4,M3.2.0/02:00,M11.1.0/02:00')
-    
+
     def test_compose_url(self):
 
         self.device.set_interval('hourslala')
@@ -94,9 +94,9 @@ class TestEGaugeAdapters():
         for qc in query.split("&"):
             if '=' in qc:
                 items = qc.split("=")
-                query_components[items[0]] = items[1] 
+                query_components[items[0]] = items[1]
             else:
-                query_components[qc] = '' 
+                query_components[qc] = ''
 
         s = query_components["s"]
         assert_equal(s, '3599')
@@ -170,6 +170,23 @@ class TestEGaugeAdapters():
         result = self.device.in_date_range(dt)
         assert_equal(result, False)
 
-    def xtest_read_data_from_url(self):
-        # need to learn how to mock access to a url
-        pass
+    def test_read_data_from_file(self):
+        self.device.set_locations('tests/test-data/energy-hourly-2015-11eg.csv')
+        self.device.set_date_range('2015-11-01 00:00:00', '2015-12-01 00:00:00')
+        rows = []
+        for row in self.device.read_data():
+            rows.append({**row})
+        total_rows = len(rows)
+
+        assert_equal(total_rows, 721)
+        assert_equal(str(rows[720]['date']), '2015-11-01 00:00:00')
+        assert_equal(str(rows[0]['date']), '2015-11-30 23:00:00')
+        assert_equal(rows[0]['used'], 0.661196667)
+        assert_equal(rows[0]['gen'], -0.005278611)
+        assert_equal(rows[0]['grid'], 0.661196667)
+        assert_equal(rows[0]['solar'], -0.005278611)
+        assert_equal(rows[0]['solar_plus'], -0.000000000)
+        assert_equal(rows[0]['water_heater'], 0.000225833)
+        assert_equal(rows[0]['ashp'], -0.461380556)
+        assert_equal(rows[0]['water_pump'], 0.000076944)
+        assert_equal(rows[0]['stove'], -0.008686389)
