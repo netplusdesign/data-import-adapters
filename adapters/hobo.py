@@ -1,5 +1,6 @@
 """
     Read temperature data from Hoboware CSV export
+    HOBO U12 and U23 Temperature/Relative Humidity Data Loggers
     See https://www.onsetcomp.com/products/data-loggers-sensors/temperature/
 """
 from adapters.adapter import Adapter
