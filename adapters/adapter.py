@@ -119,7 +119,8 @@ class Adapter:
             reader = csv.reader(resource)
             for row in reader:
                 row = self.format_row(row, column)
-                yield row
+                if self.in_date_range(row['date']):
+                    yield row
 
     def read_data(self):
         ''' External method, open URL(s) and return a list of combined values '''
